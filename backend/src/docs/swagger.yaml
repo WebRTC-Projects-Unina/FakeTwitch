@@ -1,0 +1,530 @@
+openapi: 3.0.0
+info:
+  title: FakeTwitch API Documentation
+  version: 2.0.0
+  description: |
+    API RESTful per la piattaforma FakeTwitch con risposte JSON piatte e standardizzate.
+    L'autenticazione utilizza sessioni server-side protette tramite cookie **HttpOnly (`sid`)**.
+
+servers:
+  - url: http://localhost
+    description: Server di sviluppo locale
+
+tags:
+  - name: Auth
+    description: Autenticazione, sessioni e gestione profilo corrente
+  - name: Users
+    description: Gestione utenti, ricerca e rigenerazione della Stream Key
+  - name: Subscriptions
+    description: Gestione delle iscrizioni (Follow/Unfollow) ai canali
+  - name: Streams
+    description: Controllo flussi video, liste live e webhook di OvenMediaEngine
+
+paths:
+  # =========================================================================
+  # AUTHENTICATION ROUTES (/api/auth)
+  # =========================================================================
+  /api/auth/register:
+    post:
+      summary: Registra un nuovo utente
+      description: Crea un nuovo account utente nel database e genera una Stream Key sicura per OBS Studio.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, first_name, last_name, email, password]
+              properties:
+                username:
+                  type: string
+                  example: "mario_rossi"
+                first_name:
+                  type: string
+                  example: "Mario"
+                last_name:
+                  type: string
+                  example: "Rossi"
+                email:
+                  type: string
+                  format: email
+                  example: "mario@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "PasswordSicura123"
+      responses:
+        '201':
+          description: Registrazione completata con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Registrazione completata con successo"
+        '409':
+          description: Username o Email già in uso nel sistema.
+        '500':
+          description: Errore interno del server.
+
+  /api/auth/login:
+    post:
+      summary: Autenticazione utente (Login)
+      description: Verifica le credenziali, crea una sessione nel database e imposta il cookie HttpOnly `sid`.
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  example: "mario_rossi"
+                password:
+                  type: string
+                  format: password
+                  example: "PasswordSicura123"
+      responses:
+        '200':
+          description: Login effettuato con successo. Viene impostato il cookie `sid` e restituiti i dati utente in modo piatto.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: "sid=abc123xyz...; Path=/; HttpOnly; SameSite=Lax"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Login effettuato con successo"
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: "mario_rossi"
+                      first_name:
+                        type: string
+                        example: "Mario"
+                      last_name:
+                        type: string
+                        example: "Rossi"
+                      email:
+                        type: string
+                        example: "mario@example.com"
+                      stream_key:
+                        type: string
+                        example: "sk_live_a1b2c3d4..."
+                  obs_server_url:
+                    type: string
+                    example: "rtmp://localhost:1935/app"
+        '401':
+          description: Credenziali non valide (username o password errati).
+
+  /api/auth/logout:
+    post:
+      summary: Disconnessione utente (Logout)
+      description: Elimina la sessione corrente dal database e rimuove il cookie `sid` dal browser.
+      tags: [Auth]
+      responses:
+        '200':
+          description: Logout effettuato con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Logout effettuato con successo"
+        '401':
+          description: Non autenticato.
+
+  /api/auth/me:
+    get:
+      summary: Ottieni informazioni sull'utente loggato
+      description: Restituisce i dati completi del profilo e la stream key dell'utente associato al cookie attivo.
+      tags: [Auth]
+      responses:
+        '200':
+          description: Sessione attiva e dati utente recuperati.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Sessione attiva"
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: "mario_rossi"
+                      first_name:
+                        type: string
+                        example: "Mario"
+                      last_name:
+                        type: string
+                        example: "Rossi"
+                      email:
+                        type: string
+                        example: "mario@example.com"
+                      stream_key:
+                        type: string
+                        example: "sk_live_a1b2c3d4..."
+                      created_at:
+                        type: string
+                        format: date-time
+                      updated_at:
+                        type: string
+                        format: date-time
+                  obs_server_url:
+                    type: string
+                    example: "rtmp://localhost:1935/app"
+        '401':
+          description: Non autenticato / Sessione scaduta.
+
+  # =========================================================================
+  # USER MANAGEMENT ROUTES (/api/users)
+  # =========================================================================
+  /api/users:
+    get:
+      summary: Elenco di tutti gli utenti registrati
+      description: Restituisce la lista di tutti gli utenti registrati con lo stato di trasmissione in tempo reale (`is_live`).
+      tags: [Users]
+      responses:
+        '200':
+          description: Elenco utenti recuperato con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          example: 1
+                        username:
+                          type: string
+                          example: "mario_rossi"
+                        first_name:
+                          type: string
+                          example: "Mario"
+                        last_name:
+                          type: string
+                          example: "Rossi"
+                        stream_key:
+                          type: string
+                          example: "sk_live_..."
+                        created_at:
+                          type: string
+                          format: date-time
+                        is_live:
+                          type: integer
+                          example: 1
+        '401':
+          description: Non autenticato.
+
+  /api/users/{id}:
+    get:
+      summary: Dettaglio di uno specifico utente
+      description: Restituisce le informazioni anagrafiche di un utente tramite il suo ID.
+      tags: [Users]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID numerico dell'utente
+          example: 1
+      responses:
+        '200':
+          description: Utente trovato.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      username:
+                        type: string
+                        example: "mario_rossi"
+                      first_name:
+                        type: string
+                        example: "Mario"
+                      last_name:
+                        type: string
+                        example: "Rossi"
+                      created_at:
+                        type: string
+                        format: date-time
+        '404':
+          description: Utente non trovato.
+        '401':
+          description: Non autenticato.
+
+  /api/users/regenerate-key:
+    post:
+      summary: Rigenera la Stream Key
+      description: Genera una nuova Stream Key sicura per OBS Studio sovrascrivendo la precedente.
+      tags: [Users]
+      responses:
+        '200':
+          description: Chiave rigenerata con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Stream Key rigenerata con successo"
+                  stream_key:
+                    type: string
+                    example: "sk_live_nuovachiave..."
+        '401':
+          description: Non autenticato.
+
+  # =========================================================================
+  # SUBSCRIPTION / FOLLOW ROUTES (/api/subscriptions)
+  # =========================================================================
+  /api/subscriptions:
+    get:
+      summary: Elenco dei canali seguiti (Iscrizioni)
+      description: Restituisce tutti gli streamer seguiti dall'utente loggato con il relativo stato live.
+      tags: [Subscriptions]
+      responses:
+        '200':
+          description: Elenco iscrizioni recuperato con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  subscriptions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        streamer_id:
+                          type: integer
+                          example: 3
+                        username:
+                          type: string
+                          example: "luigi_verdi"
+                        first_name:
+                          type: string
+                          example: "Luigi"
+                        last_name:
+                          type: string
+                          example: "Verdi"
+                        subscribed_at:
+                          type: string
+                          format: date-time
+                        is_live:
+                          type: integer
+                          example: 1
+                        stream_title:
+                          type: string
+                          example: "Diretta di luigi_verdi"
+                        started_at:
+                          type: string
+                          format: date-time
+        '401':
+          description: Non autenticato.
+
+    post:
+      summary: Iscriviti a un canale (Follow)
+      description: Crea un rapporto di iscrizione verso lo streamer indicato.
+      tags: [Subscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [streamer_id]
+              properties:
+                streamer_id:
+                  type: integer
+                  example: 3
+      responses:
+        '201':
+          description: Iscrizione effettuata con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Iscrizione effettuata con successo"
+                  streamer_id:
+                    type: integer
+                    example: 3
+        '400':
+          description: Errore (es. auto-follow o iscrizione già esistente).
+        '404':
+          description: Streamer non trovato.
+        '401':
+          description: Non autenticato.
+
+  /api/subscriptions/{streamerId}:
+    delete:
+      summary: Annulla l'iscrizione a un canale (Unfollow)
+      description: Rimuove il record di iscrizione verso lo streamer specificato.
+      tags: [Subscriptions]
+      parameters:
+        - in: path
+          name: streamerId
+          required: true
+          schema:
+            type: integer
+          description: ID dello streamer da smettere di seguire
+          example: 3
+      responses:
+        '200':
+          description: Disiscrizione completata con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Disiscrizione completata con successo"
+                  streamer_id:
+                    type: string
+                    example: "3"
+        '404':
+          description: Relazione di iscrizione non trovata.
+        '401':
+          description: Non autenticato.
+
+  # =========================================================================
+  # STREAM & WEBHOOK ROUTES (/api/stream)
+  # =========================================================================
+  /api/stream/live:
+    get:
+      summary: Lista canali in onda (Live)
+      description: Restituisce l'elenco di tutte le dirette attive (`status = 'live'`).
+      tags: [Streams]
+      responses:
+        '200':
+          description: Elenco dirette attive recuperato con successo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  streams:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stream_id:
+                          type: integer
+                          example: 10
+                        title:
+                          type: string
+                          example: "Diretta di mario_rossi"
+                        started_at:
+                          type: string
+                          format: date-time
+                        streamer_id:
+                          type: integer
+                          example: 1
+                        username:
+                          type: string
+                          example: "mario_rossi"
+        '401':
+          description: Non autenticato.
+
+  /api/stream/auth:
+    post:
+      summary: Webhook di ammissione OvenMediaEngine (OME)
+      description: Endpoint server-to-server chiamato da OME all'apertura o chiusura dei flussi, protetto da HMAC-SHA1.
+      tags: [Streams]
+      parameters:
+        - in: header
+          name: x-ome-signature
+          required: true
+          schema:
+            type: string
+          description: Firma crittografica HMAC-SHA1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Payload inviato nativamente da OME
+      responses:
+        '200':
+          description: Webhook elaborato con successo.
+        '401':
+          description: Firma HMAC non valida.
+        '403':
+          description: Stream Key non valida o diretta duplicata.
+        '400':
+          description: Payload malformato.

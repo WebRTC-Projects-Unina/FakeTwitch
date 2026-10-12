@@ -1,0 +1,477 @@
+/* ==========================================================================
+   1. BASE PAGINA (SFONDO SCURO E BLOCCO ALTEZZA 100vh)
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: #0e0e10;
+  color: #efeff1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   2. HEADER (LOGO + BENVENUTO + TASTO ESCI)
+   ========================================================================== */
+header {
+  background-color: #18181b;
+  border-bottom: 1px solid #27272a;
+  padding: 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #bf94ff;
+}
+
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+/* Stile del bottone "Esci" (e dei futuri bottoni) */
+button {
+  padding: 6px 12px;
+  background-color: #9147ff;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+button:hover {
+  background-color: #772ce8;
+}
+
+/* ==========================================================================
+   3. FOOTER (TESTO STATICO IN BASSO)
+   ========================================================================== */
+footer {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #71717a;
+  background-color: #18181b;
+  border-top: 1px solid #27272a;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   4. CASELLE DI TESTO (INPUT) E SCHERMATA LOGIN / REGISTRAZIONE
+   ========================================================================== */
+h2, h3 {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #efeff1;
+  font-size: 13px;
+  outline: none;
+}
+
+input:focus {
+  border-color: #9147ff;
+}
+
+/* Contenitore elastico che centra il box tra Header e Footer */
+.guest-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.guest-container {
+  max-width: 720px;
+  width: 100%;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 10px;
+  padding: 24px;
+}
+
+/* Griglia a 2 colonne uguali (1fr 1fr): Login a sinistra, Registrazione a destra */
+.auth-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.auth-card {
+  background-color: #1f1f23;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #2d2d35;
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-card button {
+  width: 100%;
+  margin-top: auto; /* Spinge il bottone in fondo alla card così sono allineati */
+}
+
+/* Banner per messaggi di errore o conferma */
+.feedback-banner {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.feedback-banner.error {
+  background-color: rgba(233, 25, 22, 0.15);
+  border: 1px solid #e91916;
+  color: #ff8583;
+}
+
+.feedback-banner.success {
+  background-color: rgba(0, 245, 147, 0.12);
+  border: 1px solid #00f593;
+  color: #00f593;
+}
+
+/* ==========================================================================
+   5. BARRA INFO STREAMER (SOTTO L'HEADER)
+   ========================================================================== */
+.streamer-info-bar {
+  background-color: #1f1f23;
+  border-bottom: 1px solid #2d2d35;
+  padding: 6px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: #dedee3;
+  flex-shrink: 0;
+}
+
+.streamer-info-bar strong {
+  color: #bf94ff;
+}
+
+.streamer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+button.secondary {
+  width: auto;
+  padding: 4px 10px;
+  background-color: #2f2f35;
+  color: #efeff1;
+  font-size: 12px;
+}
+
+button.secondary:hover {
+  background-color: #3f3f46;
+}
+
+/* ==========================================================================
+   6. GRIGLIA DASHBOARD E SIDEBAR SINISTRA CON SCROLL INTERNO
+   ========================================================================== */
+.main-layout {
+  flex: 1;
+  min-height: 0; /* Impedisce alla dashboard di allungare la pagina */
+  display: grid;
+  grid-template-columns: 220px 1fr; /* 220px per la Sidebar, tutto il resto a destra */
+  gap: 10px;
+  padding: 8px 12px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.sidebar-left {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.sidebar-block {
+  flex: 1;
+  min-height: 0; /* Fondamentale: obbliga la lista interna a scorrere */
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #bf94ff;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.sidebar-divider {
+  border: none;
+  border-top: 1px solid #27272a;
+  margin: 8px 0;
+  flex-shrink: 0;
+}
+
+.scrollable-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto; /* Attiva la barra di scorrimento solo qui dentro */
+  padding-right: 4px;
+  font-size: 13px;
+  color: #adadb8;
+}
+
+.channel-item,
+.user-item {
+  background-color: #1f1f23;
+  border: 1px solid #2d2d35;
+  border-radius: 6px;
+  padding: 7px 9px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.channel-item:hover,
+.user-item:hover,
+.channel-item.active-channel {
+  background-color: #26262c;
+  border-color: #9147ff;
+}
+
+/* ==========================================================================
+   7. AREA CENTRALE + DESTRA: VIDEO 16:9 | CHAT VERTICALE
+   ========================================================================== */
+.center-content {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 280px; /* Video a sinistra (1fr) e Chat a destra (280px) */
+  gap: 10px;
+  overflow: hidden;
+}
+
+/* Colonna verticale centrale: Player sopra + Statistiche sotto */
+.middle-column {
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.player-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.player-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.video-wrapper {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#video_player, 
+.video-wrapper video {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-height: calc(100vh - 280px);
+  background-color: #000000;
+  border-radius: 6px;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==========================================================================
+   8. RIQUADRO TELEMETRIA E STATISTICHE SOTTO IL VIDEO
+   ========================================================================== */
+.stats-panel {
+  flex: 1;
+  min-height: 0;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.stats-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #adadb8;
+}
+
+.stats-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #efeff1;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #52525b;
+  display: inline-block;
+}
+
+.pulse-dot.active {
+  background-color: #e91916;
+  box-shadow: 0 0 8px #e91916;
+}
+
+.protocol-badge {
+  background-color: #26262c;
+  border: 1px solid #3f3f46;
+  color: #bf94ff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stats-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.stat-box {
+  background-color: #1f1f23;
+  border: 1px solid #2d2d35;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  max-height: 64px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #adadb8;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #efeff1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   9. CHAT WEBSOCKET (COLONNA DESTRA A TUTTA ALTEZZA)
+   ========================================================================== */
+.chat-section {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: #18181b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chat-header {
+  background-color: #1f1f23;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-bottom: 1px solid #27272a;
+  flex-shrink: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-input-area {
+  padding: 8px 10px;
+  background-color: #1f1f23;
+  border-top: 1px solid #27272a;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}

@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- ===================================================================== -->
+<!-- LIVELLO 1: CONFIGURAZIONE GLOBALE DEL PROCESSO SERVER -->
+<!-- ===================================================================== -->
+
+<!-- "version=8" indica la versione dello schema XML richiesta da OME. -->
+<Server version="8">
+
+    <!-- Nome identificativo del server (compare nei file di log) -->
+    <Name>OvenMediaEngine</Name>
+
+    <!-- Ruolo del server nell'architettura:
+         "origin": riceve il flusso da OBS, valida la chiave e fa il transcoding ABR
+         "edge": eventuale server secondario che replica i flussi dell'origin -->
+    <Type>origin</Type>
+
+    <!-- Interfaccia di rete su cui mettersi in ascolto:
+         "*" equivale a 0.0.0.0 (ascolta su tutte le schede di rete del container/PC) -->
+    <IP>*</IP>
+
+    <!-- Se "true", nasconde gli IP dei client e i nomi degli stream nei log per il GDPR.
+         Impostato a "false" per vedere chiaramente gli URL e gli IP durante il debug. -->
+    <PrivacyProtection>false</PrivacyProtection>
+
+    <!-- ===================================================================== -->
+    <!-- LIVELLO 2: MODULI INTERNI E GESTIONE DELLA MEMORIA / THREAD -->
+    <!-- ===================================================================== -->
+
+    <Modules>
+
+        <!-- Abilita il supporto al protocollo HTTP/2 -->
+        <HTTP2>
+            <Enable>true</Enable>
+        </HTTP2>
+
+        <!-- Accende globalmente il motore per il Low-Latency HLS (basato su CMAF) -->
+        <LLHLS>
+            <Enable>true</Enable>
+        </LLHLS>
+
+        <!-- Configurazione di jemalloc (allocatore di memoria C++ ad alte prestazioni) -->
+        <Jemalloc>
+            <BackgroundPurge>true</BackgroundPurge>
+        </Jemalloc>
+
+        <!-- Pool di thread condivisi ampliato a 8 per operazioni veloci e asincrone -->
+        <TaskPool>
+            <ThreadCount>8</ThreadCount>
+            <MaxTasks>256</MaxTasks>
+        </TaskPool>
+
+    </Modules>
+
+    <!-- ===================================================================== -->
+    <!-- LIVELLO 3: APERTURA DELLE PORTE DI RETE NEL SISTEMA OPERATIVO (BIND) -->
+    <!-- ===================================================================== -->
+
+    <Bind>
+
+        <!-- PROVIDERS: Porte in INGRESSO (dove trasmette OBS Studio) -->
+        <Providers>
+            <RTMP>
+                <Port>${env:OME_RTMP_PROV_PORT:1935}</Port>
+                <WorkerCount>2</WorkerCount>
+            </RTMP>
+        </Providers>
+
+        <!-- PUBLISHERS: Porte in USCITA (dove si collega il player web con hls.js) -->
+        <Publishers>
+            <LLHLS>
+                <Port>${env:OME_LLHLS_STREAM_PORT:3333}</Port>
+                <WorkerCount>4</WorkerCount>
+            </LLHLS>
+        </Publishers>
+
+    </Bind>
+
+    <!-- Impostazioni CORS predefinite globali -->
+    <Defaults>
+        <CrossDomains>
+            <Url>*</Url>
+        </CrossDomains>
+    </Defaults>
+
+    <!-- ===================================================================== -->
+    <!-- LIVELLO 4: VIRTUAL HOSTS (DOMINI, SICUREZZA E WEBHOOK DI AUTH) -->
+    <!-- ===================================================================== -->
+
+    <VirtualHosts>
+
+        <!-- Definizione del VirtualHost principale -->
+        <VirtualHost>
+
+            <Name>default</Name>
+            <Distribution>ovenmediaengine.com</Distribution>
+
+            <Host>
+                <Names>
+                    <Name>*</Name>
+                </Names>
+            </Host>
+
+            <!-- ================================================================= -->
+            <!-- ADMISSION WEBHOOKS: POSIZIONATO CORRETTAMENTE NEL VIRTUALHOST -->
+            <!-- ================================================================= -->
+
+            <AdmissionWebhooks>
+                <ControlServerUrl>http://172.28.0.30:4000/api/stream/auth</ControlServerUrl>
+                <SecretKey>chiave_segreta_hmac_esame</SecretKey>
+                <Timeout>3000</Timeout>
+                <Enables>
+                    <Providers>rtmp</Providers>
+                    <Publishers>llhls</Publishers>
+                </Enables>
+            </AdmissionWebhooks>
+
+            <!-- Abilita gli header CORS (Access-Control-Allow-Origin: *) per questo VirtualHost -->
+            <CrossDomains>
+                <Url>*</Url>
+            </CrossDomains>
+
+            <!-- ================================================================= -->
+            <!-- LIVELLO 5: APPLICAZIONI (LA "STANZA" LOGICA DELLO STREAMING) -->
+            <!-- ================================================================= -->
+
+            <Applications>
+                <Application>
+
+                    <!-- Il nome "app" definisce il primo pezzo dell'URL sia su OBS che sul Player -->
+                    <Name>app</Name>
+
+                    <!-- Tipo di applicazione: "live" per streaming in tempo reale -->
+                    <Type>live</Type>
+
+                    <!-- ========================================================= -->
+                    <!-- MOTORE DI TRANSCODING ABR E GENERAZIONE MANIFEST (.m3u8) -->
+                    <!-- ========================================================= -->
+
+                    <OutputProfiles>
+                        <OutputProfile>
+
+                            <Name>abr_profile</Name>
+                            <OutputStreamName>${OriginStreamName}</OutputStreamName>
+
+                            <Playlist>
+                                <Name>default</Name>
+                                <FileName>master</FileName>
+
+                                <Options>
+                                    <HLSChunklistPathDepth>0</HLSChunklistPathDepth>
+                                </Options>
+
+                                <RenditionTemplate>
+                                    <Name>${Height}p</Name>
+
+                                    <VideoTemplate>
+                                        <!-- "all" permette di includere nella playlist sia il flusso in bypass sia quelli ricodificati -->
+                                        <EncodingType>all</EncodingType>
+                                    </VideoTemplate>
+
+                                    <AudioTemplate>
+                                        <EncodingType>all</EncodingType>
+                                    </AudioTemplate>
+                                </RenditionTemplate>
+                            </Playlist>
+
+                            <!-- CODIFICA DEI 3 FLUSSI VIDEO ABR + SMART BYPASS + 60 FPS -->
+                            <Encodes>
+
+                                <!-- VARIANTE 1: Full HD 1080p @ 60 FPS (6.0 Mbps) -->
+                                <Video>
+                                    <Name>video_1080p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>1920</Width>
+                                    <Height>1080</Height>
+                                    <Bitrate>6000000</Bitrate>
+                                    <Framerate>60</Framerate>
+                                    <KeyFrameInterval>60</KeyFrameInterval>
+                                    <Preset>fast</Preset>
+                                    <ThreadCount>4</ThreadCount>
+
+                                    <!-- Se OBS invia già H.264 a 1920x1080, salta la ricodifica (0% CPU, qualità nativa 60fps) -->
+                                    <BypassIfMatch>
+                                        <Codec>eq</Codec>
+                                        <Width>eq</Width>
+                                        <Height>eq</Height>
+                                    </BypassIfMatch>
+                                </Video>
+
+                                <!-- VARIANTE 2: HD 720p @ 60 FPS (3.0 Mbps) -->
+                                <Video>
+                                    <Name>video_720p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>1280</Width>
+                                    <Height>720</Height>
+                                    <Bitrate>3000000</Bitrate>
+                                    <Framerate>60</Framerate>
+                                    <KeyFrameInterval>60</KeyFrameInterval>
+                                    <Preset>faster</Preset>
+                                    <ThreadCount>4</ThreadCount>
+
+                                    <!-- Se OBS invia già H.264 a 1280x720, salta la ricodifica su questo profilo -->
+                                    <BypassIfMatch>
+                                        <Codec>eq</Codec>
+                                        <Width>eq</Width>
+                                        <Height>eq</Height>
+                                    </BypassIfMatch>
+                                </Video>
+
+                                <!-- VARIANTE 3: SD 480p @ 30 FPS (1.0 Mbps) -->
+                                <Video>
+                                    <Name>video_480p</Name>
+                                    <Codec>h264</Codec>
+                                    <Width>854</Width>
+                                    <Height>480</Height>
+                                    <Bitrate>1000000</Bitrate>
+                                    <Framerate>30</Framerate>
+                                    <KeyFrameInterval>30</KeyFrameInterval>
+                                    <Preset>faster</Preset>
+                                    <ThreadCount>2</ThreadCount>
+
+                                    <!-- Se OBS invia già H.264 a 854x480, salta la ricodifica su questo profilo -->
+                                    <BypassIfMatch>
+                                        <Codec>eq</Codec>
+                                        <Width>eq</Width>
+                                        <Height>eq</Height>
+                                    </BypassIfMatch>
+                                </Video>
+
+                                <!-- TRACCIA AUDIO AAC 128 kbps Stereo -->
+                                <Audio>
+                                    <Name>aac_audio</Name>
+                                    <Codec>aac</Codec>
+                                    <Bitrate>128000</Bitrate>
+                                    <Samplerate>48000</Samplerate>
+                                    <Channel>2</Channel>
+
+                                    <BypassIfMatch>
+                                        <Codec>eq</Codec>
+                                    </BypassIfMatch>
+                                </Audio>
+
+                            </Encodes>
+
+                        </OutputProfile>
+                    </OutputProfiles>
+
+                    <!-- PROTOCOLLI DI INGRESSO -->
+                    <Providers>
+                        <RTMP />
+                    </Providers>
+
+                    <!-- PROTOCOLLI DI USCITA E PACKAGING (LL-HLS) -->
+                    <Publishers>
+                        <AppWorkerCount>2</AppWorkerCount>
+                        <StreamWorkerCount>8</StreamWorkerCount>
+
+                        <LLHLS>
+                            <OriginMode>true</OriginMode>
+                            <ChunkDuration>0.5</ChunkDuration>
+                            <PartHoldBack>1.5</PartHoldBack>
+                            <SegmentDuration>6</SegmentDuration>
+                            <SegmentCount>10</SegmentCount>
+
+                            <CrossDomains>
+                                <Url>*</Url>
+                            </CrossDomains>
+
+                            <CreateDefaultPlaylist>true</CreateDefaultPlaylist>
+                        </LLHLS>
+                    </Publishers>
+
+                </Application>
+            </Applications>
+
+        </VirtualHost>
+
+    </VirtualHosts>
+
+</Server>
